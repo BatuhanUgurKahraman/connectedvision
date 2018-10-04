@@ -41,7 +41,7 @@ def installPackages():
 		"FFmpeg/3.2.4",
 		"libcurl/7.47.1",
 		"Node.js/7.9.0",
-		"OpenCV/3.1.0",
+		"OpenCV/3.4.3",
 		"OpenSSL/1.0.2g",
 		"POCO/1.6.1",
 		"RapidJSON/1.0.2",

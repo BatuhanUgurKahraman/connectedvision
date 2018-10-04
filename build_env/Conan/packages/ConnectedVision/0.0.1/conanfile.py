@@ -17,8 +17,8 @@ class ConnectedVision(ConanFile):
 	requires = (("Boost/1.58.0@covi/stable"),
 		("FFmpeg/3.2.4@covi/stable"),
 		("Node.js/7.9.0@covi/stable"),
-		("OpenCV/3.1.0@covi/stable"),
 		("POCO/1.6.1@covi/stable"),
+		("OpenCV/3.4.3@covi/stable"),
 		("RapidJSON/1.0.2@covi/stable"),
 		("SQLite/3.15.1@covi/stable"))
 
