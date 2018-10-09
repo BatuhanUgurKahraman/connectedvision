@@ -265,7 +265,8 @@ WITH_ZLIB=True
 				self.cpp_info.libs = glob.glob("*.lib")
 			else:
 				libsAllUnsorted = glob.glob("*.a")
-
+				
+				# separate OpenCV libs from 3rd-party libs
 				libsCv = []
 				libs3rd = []
 				r = re.compile(r"lib(opencv_.*)\.a")
@@ -276,6 +277,7 @@ WITH_ZLIB=True
 					else:
 						libs3rd.append(re.match(r"lib(.*)\.a", f).group(1))
 				
+				# essential OpenCV libs which need to be at the end of the (OpenCV lib) list
 				libsCvSubsetSorted = ["opencv_imgproc", "opencv_core"]
 
 				for lib in libsCvSubsetSorted:
@@ -283,4 +285,5 @@ WITH_ZLIB=True
 						libsCv.remove(lib)
 						libsCv.append(lib)
 				
+				# move OpenCV libs to the beginning of the list and 3rd-party libs to the end
 				self.cpp_info.libs = libsCv + libs3rd
