@@ -43,7 +43,7 @@ def installPackages():
 		"Node.js/7.9.0",
 		"OpenCV/3.4.3",
 		"OpenSSL/1.0.2g",
-		"POCO/1.6.1",
+		"POCO/1.9.0",
 		"RapidJSON/1.0.2",
 		"SQLite/3.15.1"
 	])
