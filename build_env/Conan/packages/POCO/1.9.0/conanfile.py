@@ -181,11 +181,15 @@ POCO_UNBUNDLED=False
 				self.cpp_info.libs = glob.glob("*.lib")
 				self.cpp_info.libs.extend(["ws2_32", "Iphlpapi"])
 			else:
-				r = re.compile("lib(.+?)\.a")
+				r = re.compile(r"lib(.+?)\.a")
 				libs = [re.match(r, f).group(1) for f in glob.glob("*.a")]
 				
 				# adjust the lib order for Linux/GCC
 				libsSubsetSorted = ["PocoCrypto", "PocoUtil", "PocoJSON", "PocoXML", "PocoFoundation"]
+
+				# add "d" filename suffix for debug build
+				if self.settings.build_type == "Debug":
+					libsSubsetSorted = [lib + "d" for lib in libsSubsetSorted]
 				
 				for lib in libsSubsetSorted:
 					if lib in libs:
