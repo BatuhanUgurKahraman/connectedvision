@@ -92,7 +92,7 @@ WITH_CUDA=False
 WITH_CUFFT=False
 WITH_DIRECTX=False
 WITH_EIGEN=False
-WITH_FFMPEG=True
+WITH_FFMPEG=False
 WITH_GDAL=False
 WITH_GIGEAPI=False
 WITH_GPHOTO2=False
@@ -135,15 +135,6 @@ WITH_XIMEA=False
 WITH_XINE=False
 WITH_ZLIB=True
 '''
-	
-	
-	def getInstallDir(self):
-		return os.path.join(self.name, "build", "install")
-
-
-
-	def getSubdirectories(self, d):
-		return [ f for f in os.listdir(d) if os.path.isdir(f) ]
 
 
 
@@ -152,10 +143,15 @@ WITH_ZLIB=True
 		self.output.info("---------- requirements ----------")
 		self.output.info("")
 		
-		self.requires("FFmpeg/3.2.4@covi/stable", private=False)
+		if self.options.WITH_FFMPEG == "True":
+			if self.settings.os == "Windows":
+				raise Exception("compililation on Windows with Visual Studio using FFmpeg as Conan package needs to be fixed")
+		
+			self.requires("FFmpeg/3.2.4@covi/stable", private=False)
 		
 		if not self.options.BUILD_ZLIB:
 			self.requires("zlib/1.2.11@covi/stable", private=False)
+
 
 
 	def source(self):
@@ -169,7 +165,7 @@ WITH_ZLIB=True
 		tools.download(url, filename, retry=3, retry_wait=10)
 		tools.unzip(filename)
 		os.remove(filename)
-		dirnames = self.getSubdirectories(self.source_folder)
+		dirnames = [f for f in os.listdir(self.source_folder) if os.path.isdir(f)]
 		os.rename(dirnames[0], self.name)	
 
 
@@ -193,8 +189,8 @@ WITH_ZLIB=True
 			opts[item[0]] = item[1]
 		
 		# not included in conan options since it has not been implemented/tested
-		opts["BUILD_SHARED_LIBS"] = False
-		opts["INSTALL_CREATE_DISTRIB"] = True
+		opts["BUILD_SHARED_LIBS"] = "False"
+		opts["INSTALL_CREATE_DISTRIB"] = "True"
 		
 		# use already existing conan zlib package
 		if opts["BUILD_ZLIB"] == "False":
@@ -215,21 +211,53 @@ WITH_ZLIB=True
 				opts["ZLIB_LIBRARY"] = opts["ZLIB_LIBRARY"].replace("\\", "/")
 		
 		if opts["WITH_FFMPEG"] == "True":
-			opts["FFMPEG_FOUND"] = True
-			opts["FFMPEG_INCLUDE_DIRS"] = self.deps_cpp_info["FFmpeg"].include_paths[0]
-			opts["FFMPEG_LIBRARY_DIRS"] = self.deps_cpp_info["FFmpeg"].lib_paths[0]
-			opts["FFMPEG_LIBRARIES"] = ";".join(self.deps_cpp_info["FFmpeg"].libs)
+			# generate a CMake file for the find_package method
+			self.run("conan install FFmpeg/3.2.4@covi/stable -g cmake_find_package")
+			r = re.compile(r"find.*ffmpeg.*\.cmake", re.I)
 			
+			# determine the path of the generated file
+			ffmpegFindFile = [f for f in os.listdir(self.build_folder) if os.path.isfile(f) and r.match(f)]
+			
+			if not ffmpegFindFile:
+				raise Exception("failed to generate FFmpeg find script for building OpenCV")
+			
+			ffmpegFindFileSrc = ffmpegFindFile[0]
+			
+			contentPrefix = ""			
+			
+			# add additional variables expected by OpenCV to the FindFFmpeg file
 			for lib in self.deps_cpp_info["FFmpeg"].libs:
-				opts["FFMPEG_" + lib + "_FOUND"] = True		
+				contentPrefix += "SET(FFMPEG_"
+				
+				if self.settings.os == "Linux":
+					contentPrefix += "lib"
+				
+				contentPrefix += lib + "_FOUND True)\n"
+			
+			with open(ffmpegFindFileSrc, "r+") as f:
+				content = f.read()
+				content = contentPrefix + re.sub("FFmpeg_", "FFMPEG_", content)
+				
+				f.seek(0)
+				f.write(content)
+				f.truncate()
+			
+			opts["OPENCV_FFMPEG_USE_FIND_PACKAGE"] = "FFmpeg"
+			os.rename(ffmpegFindFileSrc, "FFmpegConfig.cmake")
+			opts["FFmpeg_DIR"] = self.build_folder
+			
+			# TODO: fix Windows Visual Studio build with Conan FFmpeg package
+			# building FFmpeg detection test application (cmake\OpenCVFindLibsVideo.cmake -> cmake\checks\ffmpeg_test.cpp) during setup stage of OpenCV suceeds
+			# actual OpenCV build fails:
+			# - either: [...]\modules\videoio\src\ffmpeg_codecs.hpp(63) [...] Cannot open include file: 'libavformat/avformat.h'
+			# - or when explicitly injecting the FFmpeg include directory in the corresponding videoio module CMakeLists: [...]\modules\videoio\src\cap_ffmpeg_impl.hpp(1610): error C4576: a parenthesized type followed by an initializer list is a non-standard explicit type conversion syntax
 		
 		if self.settings.compiler == "Visual Studio":
 			opts["BUILD_WITH_STATIC_CRT"] = self.settings.compiler.runtime in ["MT", "MTd"]
 		
-		opts["CMAKE_INSTALL_PREFIX"] = os.path.basename(self.getInstallDir())
+		opts["CMAKE_INSTALL_PREFIX"] = "install"
 
 		buildDir = os.path.join(self.name, "build")
-		os.makedirs(buildDir)
 
 		cmake = CMake(self)
 		cmake.configure(defs=opts, source_folder=self.name, build_folder=buildDir)
